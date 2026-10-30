@@ -109,10 +109,16 @@ Aplikasi menggunakan **Clean Architecture** yang dikombinasikan dengan pola **MV
 
 ### 3.1 Core Framework & Engine
 
-- **Framework:** Flutter (3.x LTS)
+- **Framework:** Flutter (3.x LTS - e.g. 3.38.7)
 - **Language:** Dart (3.x)
 - **Target Platforms:** Android & iOS
 - **Architecture Standard:** Clean Architecture + MVVM (GetX)
+- **Android Toolchain & Environment:**
+  - **Gradle:** `8.13` (Kompabilitas resmi AGP 8.11.x)
+  - **Android Gradle Plugin (AGP):** `8.11.1`
+  - **Java / JDK:** Java 17
+  - **Core Library Desugaring:** `desugar_jdk_libs:2.1.4` (Wajib untuk plugin `flutter_local_notifications`)
+  - **Android MainActivity:** `FlutterFragmentActivity` (Wajib untuk plugin `local_auth`)
 
 ### 3.2 Package Specifications & Dependencies
 
@@ -206,6 +212,7 @@ lib/
 │   ├── data/
 │   │   ├── models/            # Model data (misal: transaction_model.dart)
 │   │   ├── providers/         # Helper SQLite / LocalDbProvider
+│   │   ├── repositories/      # Repository interface & implementation
 │   │   └── services/          # FileStorageService, ExportService, NotificationService
 │   ├── modules/
 │   │   ├── home/              # View & Controller untuk Dashboard Utama
