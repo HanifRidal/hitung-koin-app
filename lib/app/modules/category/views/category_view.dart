@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../data/models/category_model.dart';
 import '../controllers/category_controller.dart';
@@ -24,8 +27,39 @@ class CategoryView extends GetView<CategoryController> {
 
   static Color colorFromHex(String? hex) {
     if (hex == null || hex.isEmpty) return AppColors.primary;
-    final val = int.tryParse('FF$hex', radix: 16);
+    var clean = hex.replaceAll('#', '').trim();
+    if (clean.length == 3) {
+      clean = clean.split('').map((c) => '$c$c').join();
+    }
+    if (clean.length > 6) {
+      clean = clean.substring(0, 6);
+    }
+    final val = int.tryParse('FF$clean', radix: 16);
     return val != null ? Color(val) : AppColors.primary;
+  }
+
+  static String colorToHex(Color color) {
+    final v = color.toARGB32() & 0x00FFFFFF;
+    return v.toRadixString(16).padLeft(6, '0').toUpperCase();
+  }
+
+  static Widget buildCategoryIcon(String? icon, Color color) {
+    if (icon != null && (icon.endsWith('.svg') || icon.startsWith('/') || icon.contains(r'\'))) {
+      final file = File(icon);
+      if (file.existsSync()) {
+        final content = file.readAsStringSync();
+        final match = RegExp(r'''d=["'']([^"'']+)["'']''').firstMatch(content);
+        if (match != null) {
+          return SizedBox(
+            width: 22,
+            height: 22,
+            child: CustomPaint(painter: _SvgPathPainter(match.group(1)!, color)),
+          );
+        }
+      }
+      return Icon(Icons.insert_drive_file_outlined, color: color, size: 20);
+    }
+    return Icon(iconFromName(icon), color: color, size: 22);
   }
 
   @override
@@ -37,6 +71,7 @@ class CategoryView extends GetView<CategoryController> {
       ),
       body: Obx(() {
         final list = controller.filteredCategories;
+
         return Column(
           children: [
             Padding(
@@ -65,22 +100,47 @@ class CategoryView extends GetView<CategoryController> {
                 ],
               ),
             ),
+            if (list.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.drag_indicator, size: 16, color: Colors.grey),
+                    SizedBox(width: 4),
+                    Text('Tahan & geser ikon untuk mengatur urutan', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                ),
+              ),
             Expanded(
               child: list.isEmpty
                   ? const Center(child: Text('Tidak ada kategori'))
-                  : ListView.separated(
+                  : ReorderableListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       itemCount: list.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 6),
+                      buildDefaultDragHandles: false,
+                      onReorder: controller.reorderCategories,
                       itemBuilder: (context, i) {
                         final cat = list[i];
                         final color = colorFromHex(cat.colorHex);
                         return Card(
+                          key: ValueKey(cat.id ?? 'cat_$i'),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: color.withOpacity(0.15),
-                              child: Icon(iconFromName(cat.icon), color: color),
+                            leading: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ReorderableDragStartListener(
+                                  index: i,
+                                  child: const Padding(
+                                    padding: EdgeInsets.only(right: 8),
+                                    child: Icon(Icons.drag_handle_rounded, color: Colors.grey),
+                                  ),
+                                ),
+                                CircleAvatar(
+                                  backgroundColor: color.withValues(alpha: 0.15),
+                                  child: buildCategoryIcon(cat.icon, color),
+                                ),
+                              ],
                             ),
                             title: Text(cat.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                             subtitle: Text(cat.type == CategoryType.income ? 'Pemasukan' : 'Pengeluaran'),
@@ -121,87 +181,162 @@ class CategoryView extends GetView<CategoryController> {
     final colorObs = (existing?.colorHex ?? 'EF4444').obs;
     final iconObs = (existing?.icon ?? 'category').obs;
 
+    final hexCtrl = TextEditingController(text: '#${colorObs.value}');
+
+    final initialColor = colorFromHex(colorObs.value);
+    final hsv = HSVColor.fromColor(initialColor);
+    final hueObs = hsv.hue.obs;
+    final satObs = hsv.saturation.obs;
+    final valObs = hsv.value.obs;
+
+    void onHsvChanged() {
+      final c = HSVColor.fromAHSV(1.0, hueObs.value, satObs.value, valObs.value).toColor();
+      final hex = colorToHex(c);
+      colorObs.value = hex;
+      hexCtrl.text = '#$hex';
+    }
+
+    void onHexInputChanged(String text) {
+      final clean = text.replaceAll('#', '').trim();
+      if (clean.length == 3 || clean.length == 6) {
+        final c = colorFromHex(clean);
+        colorObs.value = colorToHex(c);
+        final newHsv = HSVColor.fromColor(c);
+        hueObs.value = newHsv.hue;
+        satObs.value = newHsv.saturation;
+        valObs.value = newHsv.value;
+      }
+    }
+
     Get.defaultDialog(
       title: existing == null ? 'Tambah Kategori' : 'Ubah Kategori',
-      content: Obx(() => SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Nama Kategori', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ChoiceChip(
-                        label: const Center(child: Text('Pengeluaran')),
-                        selected: typeObs.value == CategoryType.expense,
-                        selectedColor: Colors.red.shade100,
-                        onSelected: (v) {
-                          if (v) {
-                            typeObs.value = CategoryType.expense;
-                            if (existing == null) colorObs.value = 'EF4444';
-                          }
-                        },
-                      ),
+      content: Obx(() {
+        final currentColor = colorFromHex(colorObs.value);
+
+        return SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Nama Kategori', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: ChoiceChip(
+                      label: const Center(child: Text('Pengeluaran')),
+                      selected: typeObs.value == CategoryType.expense,
+                      selectedColor: Colors.red.shade100,
+                      onSelected: (v) {
+                        if (v) typeObs.value = CategoryType.expense;
+                      },
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ChoiceChip(
-                        label: const Center(child: Text('Pemasukan')),
-                        selected: typeObs.value == CategoryType.income,
-                        selectedColor: AppColors.primaryLight,
-                        onSelected: (v) {
-                          if (v) {
-                            typeObs.value = CategoryType.income;
-                            if (existing == null) colorObs.value = '10B981';
-                          }
-                        },
-                      ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ChoiceChip(
+                      label: const Center(child: Text('Pemasukan')),
+                      selected: typeObs.value == CategoryType.income,
+                      selectedColor: AppColors.primaryLight,
+                      onSelected: (v) {
+                        if (v) typeObs.value = CategoryType.income;
+                      },
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Text('Pilih Warna', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 8,
-                  children: CategoryController.availableColors.map((hex) {
-                    final c = colorFromHex(hex);
-                    final isSel = colorObs.value == hex;
-                    return GestureDetector(
-                      onTap: () => colorObs.value = hex,
-                      child: CircleAvatar(
-                        radius: 14,
-                        backgroundColor: c,
-                        child: isSel ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              // Input Kode HEX (#FFFFFF)
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: currentColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.grey.shade400),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: hexCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[#a-fA-F0-9]')),
+                        LengthLimitingTextInputFormatter(7),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'Kode HEX Warna (cth: #FFFFFF)',
+                        hintText: '#FFFFFF',
+                        border: OutlineInputBorder(),
+                        isDense: true,
                       ),
-                    );
-                  }).toList(),
+                      onChanged: onHexInputChanged,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // Slider HSV Penyesuai Warna
+              _sliderRow('Hue', hueObs.value, 0, 360, (v) {
+                hueObs.value = v;
+                onHsvChanged();
+              }),
+              _sliderRow('Sat', satObs.value, 0, 1, (v) {
+                satObs.value = v;
+                onHsvChanged();
+              }),
+              _sliderRow('Val', valObs.value, 0, 1, (v) {
+                valObs.value = v;
+                onHsvChanged();
+              }),
+              const SizedBox(height: 12),
+              const Text('Pilih Ikon Bawaan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: CategoryController.availableIcons.map((ic) {
+                  final isSel = iconObs.value == ic;
+                  return GestureDetector(
+                    onTap: () => iconObs.value = ic,
+                    child: CircleAvatar(
+                      radius: 15,
+                      backgroundColor: isSel ? AppColors.primaryLight : Colors.grey.shade200,
+                      child: Icon(iconFromName(ic), size: 16, color: isSel ? AppColors.primaryDark : Colors.grey.shade700),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.file_upload_outlined, size: 16),
+                label: Text(
+                  iconObs.value.endsWith('.svg')
+                      ? 'SVG: ${iconObs.value.split(RegExp(r"[/\\]")).last}'
+                      : 'Upload File SVG',
+                  style: const TextStyle(fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 12),
-                const Text('Pilih Ikon', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 8,
-                  children: CategoryController.availableIcons.map((ic) {
-                    final isSel = iconObs.value == ic;
-                    return GestureDetector(
-                      onTap: () => iconObs.value = ic,
-                      child: CircleAvatar(
-                        radius: 16,
-                        backgroundColor: isSel ? AppColors.primaryLight : Colors.grey.shade200,
-                        child: Icon(iconFromName(ic), size: 18, color: isSel ? AppColors.primaryDark : Colors.grey.shade700),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          )),
+                onPressed: () async {
+                  final picker = ImagePicker();
+                  final picked = await picker.pickMedia();
+                  if (picked != null && picked.path.toLowerCase().endsWith('.svg')) {
+                    iconObs.value = picked.path;
+                  } else if (picked != null) {
+                    Get.snackbar('Format Salah', 'Harap pilih file berekstensi .svg');
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      }),
       textConfirm: 'Simpan',
       textCancel: 'Batal',
       confirmTextColor: Colors.white,
@@ -230,4 +365,58 @@ class CategoryView extends GetView<CategoryController> {
       },
     );
   }
+
+  Widget _sliderRow(String label, double val, double min, double max, ValueChanged<double> onChanged) {
+    return Row(
+      children: [
+        SizedBox(width: 32, child: Text(label, style: const TextStyle(fontSize: 11))),
+        Expanded(
+          child: Slider(
+            value: val.clamp(min, max),
+            min: min,
+            max: max,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SvgPathPainter extends CustomPainter {
+  final String pathData;
+  final Color color;
+
+  _SvgPathPainter(this.pathData, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    final tokens = pathData.split(RegExp(r'[\s,]+'));
+    int i = 0;
+    while (i < tokens.length) {
+      final token = tokens[i];
+      if (token == 'M' && i + 2 < tokens.length) {
+        path.moveTo(double.tryParse(tokens[i + 1]) ?? 0, double.tryParse(tokens[i + 2]) ?? 0);
+        i += 3;
+      } else if (token == 'L' && i + 2 < tokens.length) {
+        path.lineTo(double.tryParse(tokens[i + 1]) ?? 0, double.tryParse(tokens[i + 2]) ?? 0);
+        i += 3;
+      } else if (token == 'Z' || token == 'z') {
+        path.close();
+        i += 1;
+      } else {
+        i += 1;
+      }
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SvgPathPainter oldDelegate) =>
+      oldDelegate.pathData != pathData || oldDelegate.color != color;
 }

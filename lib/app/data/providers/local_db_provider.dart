@@ -10,7 +10,7 @@ import '../models/currency_model.dart';
 
 class LocalDbProvider {
   static const _dbName = 'hitung_koin.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
 
   static final LocalDbProvider _instance = LocalDbProvider._internal();
   factory LocalDbProvider() => _instance;
@@ -31,6 +31,7 @@ class LocalDbProvider {
       path,
       version: _dbVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -50,7 +51,8 @@ class LocalDbProvider {
         name TEXT NOT NULL,
         type TEXT NOT NULL,
         icon TEXT,
-        color TEXT
+        color TEXT,
+        sort_order INTEGER DEFAULT 0
       );
     ''');
     await db.execute('''
@@ -91,19 +93,24 @@ class LocalDbProvider {
         is_default INTEGER DEFAULT 0
       );
     ''');
-    // ponytail: default seeds hardcoded in onCreate; upgrade to db migration script on schema bump
     await _seedDefaultCategories(db);
+  }
+
+  FutureOr<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE categories ADD COLUMN sort_order INTEGER DEFAULT 0');
+    }
   }
 
   Future<void> _seedDefaultCategories(DatabaseExecutor db) async {
     final seeds = [
-      {'name': 'Gaji', 'type': 'income', 'icon': 'payments', 'color': '10B981'},
-      {'name': 'Bonus', 'type': 'income', 'icon': 'redeem', 'color': '10B981'},
-      {'name': 'Makanan & Minuman', 'type': 'expense', 'icon': 'restaurant', 'color': 'EF4444'},
-      {'name': 'Transportasi', 'type': 'expense', 'icon': 'directions_car', 'color': 'F59E0B'},
-      {'name': 'Belanja', 'type': 'expense', 'icon': 'shopping_bag', 'color': '3B82F6'},
-      {'name': 'Tagihan', 'type': 'expense', 'icon': 'receipt', 'color': '8B5CF6'},
-      {'name': 'Lainnya', 'type': 'expense', 'icon': 'more_horiz', 'color': '64748B'},
+      {'name': 'Gaji', 'type': 'income', 'icon': 'payments', 'color': '10B981', 'sort_order': 0},
+      {'name': 'Bonus', 'type': 'income', 'icon': 'redeem', 'color': '10B981', 'sort_order': 1},
+      {'name': 'Makanan & Minuman', 'type': 'expense', 'icon': 'restaurant', 'color': 'EF4444', 'sort_order': 2},
+      {'name': 'Transportasi', 'type': 'expense', 'icon': 'directions_car', 'color': 'F59E0B', 'sort_order': 3},
+      {'name': 'Belanja', 'type': 'expense', 'icon': 'shopping_bag', 'color': '3B82F6', 'sort_order': 4},
+      {'name': 'Tagihan', 'type': 'expense', 'icon': 'receipt', 'color': '8B5CF6', 'sort_order': 5},
+      {'name': 'Lainnya', 'type': 'expense', 'icon': 'more_horiz', 'color': '64748B', 'sort_order': 6},
     ];
     for (final c in seeds) {
       await db.insert('categories', c);
@@ -141,10 +148,10 @@ class LocalDbProvider {
 
   Future<List<CategoryModel>> getAllCategories() async {
     final db = await database;
-    var maps = await db.query('categories');
+    var maps = await db.query('categories', orderBy: 'sort_order ASC, id ASC');
     if (maps.isEmpty) {
       await _seedDefaultCategories(db);
-      maps = await db.query('categories');
+      maps = await db.query('categories', orderBy: 'sort_order ASC, id ASC');
     }
     return maps.map((e) => CategoryModel.fromJson(e)).toList();
   }
@@ -158,6 +165,23 @@ class LocalDbProvider {
   Future<int> deleteCategory(int id) async {
     final db = await database;
     return await db.delete('categories', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updateCategoryOrders(List<CategoryModel> orderedList) async {
+    final db = await database;
+    final batch = db.batch();
+    for (var i = 0; i < orderedList.length; i++) {
+      final cat = orderedList[i];
+      if (cat.id != null) {
+        batch.update(
+          'categories',
+          {'sort_order': i},
+          where: 'id = ?',
+          whereArgs: [cat.id],
+        );
+      }
+    }
+    await batch.commit(noResult: true);
   }
 
   // ------- Transaction CRUD -------

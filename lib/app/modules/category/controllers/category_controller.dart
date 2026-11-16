@@ -8,8 +8,18 @@ class CategoryController extends GetxController {
   final categories = <CategoryModel>[].obs;
   final selectedFilter = Rxn<CategoryType>();
 
-  static const availableColors = ['10B981', 'EF4444', '3B82F6', 'F59E0B', '8B5CF6', 'EC4899', '64748B'];
-  static const availableIcons = ['category', 'payments', 'restaurant', 'directions_car', 'shopping_bag', 'receipt', 'work', 'flight', 'school', 'fitness_center'];
+  static const availableIcons = [
+    'category',
+    'payments',
+    'restaurant',
+    'directions_car',
+    'shopping_bag',
+    'receipt',
+    'work',
+    'flight',
+    'school',
+    'fitness_center',
+  ];
 
   @override
   void onInit() {
@@ -42,6 +52,7 @@ class CategoryController extends GetxController {
       type: type,
       icon: icon ?? 'category',
       colorHex: colorHex ?? (type == CategoryType.income ? '10B981' : 'EF4444'),
+      sortOrder: categories.length,
     );
     await _dbProvider.insertCategory(cat);
     await loadCategories();
@@ -56,5 +67,24 @@ class CategoryController extends GetxController {
   Future<void> deleteCategory(int id) async {
     await _dbProvider.deleteCategory(id);
     await loadCategories();
+  }
+
+  Future<void> reorderCategories(int oldIndex, int newIndex) async {
+    if (newIndex > oldIndex) newIndex -= 1;
+
+    // Filter-aware reordering: mapping index filtered ke list utama
+    final currentFiltered = filteredCategories;
+    final movedItem = currentFiltered[oldIndex];
+    final targetItem = currentFiltered[newIndex];
+
+    final globalOld = categories.indexWhere((c) => c.id == movedItem.id);
+    final globalTarget = categories.indexWhere((c) => c.id == targetItem.id);
+
+    if (globalOld == -1 || globalTarget == -1) return;
+
+    categories.removeAt(globalOld);
+    categories.insert(globalTarget, movedItem);
+
+    await _dbProvider.updateCategoryOrders(categories);
   }
 }

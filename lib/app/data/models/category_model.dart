@@ -7,7 +7,8 @@ class CategoryModel extends Equatable {
   final String name;
   final CategoryType type;
   final String? icon;
-  final String? colorHex; // optional hex color string
+  final String? colorHex;
+  final int sortOrder;
 
   const CategoryModel({
     this.id,
@@ -15,6 +16,7 @@ class CategoryModel extends Equatable {
     required this.type,
     this.icon,
     this.colorHex,
+    this.sortOrder = 0,
   });
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) => CategoryModel(
@@ -25,6 +27,7 @@ class CategoryModel extends Equatable {
             : CategoryType.expense,
         icon: json['icon'] as String?,
         colorHex: json['color'] as String?,
+        sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
       );
 
   Map<String, dynamic> toJson() => {
@@ -33,6 +36,7 @@ class CategoryModel extends Equatable {
         'type': type == CategoryType.income ? 'income' : 'expense',
         if (icon != null) 'icon': icon,
         if (colorHex != null) 'color': colorHex,
+        'sort_order': sortOrder,
       };
 
   CategoryModel copyWith({
@@ -41,6 +45,7 @@ class CategoryModel extends Equatable {
     CategoryType? type,
     String? icon,
     String? colorHex,
+    int? sortOrder,
   }) =>
       CategoryModel(
         id: id ?? this.id,
@@ -48,8 +53,9 @@ class CategoryModel extends Equatable {
         type: type ?? this.type,
         icon: icon ?? this.icon,
         colorHex: colorHex ?? this.colorHex,
+        sortOrder: sortOrder ?? this.sortOrder,
       );
 
   @override
-  List<Object?> get props => [id, name, type, icon, colorHex];
+  List<Object?> get props => [id, name, type, icon, colorHex, sortOrder];
 }
