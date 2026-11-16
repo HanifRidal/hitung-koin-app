@@ -91,6 +91,23 @@ class LocalDbProvider {
         is_default INTEGER DEFAULT 0
       );
     ''');
+    // ponytail: default seeds hardcoded in onCreate; upgrade to db migration script on schema bump
+    await _seedDefaultCategories(db);
+  }
+
+  Future<void> _seedDefaultCategories(DatabaseExecutor db) async {
+    final seeds = [
+      {'name': 'Gaji', 'type': 'income', 'icon': 'payments', 'color': '10B981'},
+      {'name': 'Bonus', 'type': 'income', 'icon': 'redeem', 'color': '10B981'},
+      {'name': 'Makanan & Minuman', 'type': 'expense', 'icon': 'restaurant', 'color': 'EF4444'},
+      {'name': 'Transportasi', 'type': 'expense', 'icon': 'directions_car', 'color': 'F59E0B'},
+      {'name': 'Belanja', 'type': 'expense', 'icon': 'shopping_bag', 'color': '3B82F6'},
+      {'name': 'Tagihan', 'type': 'expense', 'icon': 'receipt', 'color': '8B5CF6'},
+      {'name': 'Lainnya', 'type': 'expense', 'icon': 'more_horiz', 'color': '64748B'},
+    ];
+    for (final c in seeds) {
+      await db.insert('categories', c);
+    }
   }
 
   // ------- Account CRUD -------
@@ -124,7 +141,11 @@ class LocalDbProvider {
 
   Future<List<CategoryModel>> getAllCategories() async {
     final db = await database;
-    final maps = await db.query('categories');
+    var maps = await db.query('categories');
+    if (maps.isEmpty) {
+      await _seedDefaultCategories(db);
+      maps = await db.query('categories');
+    }
     return maps.map((e) => CategoryModel.fromJson(e)).toList();
   }
 

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/values/app_strings.dart';
 import '../../../data/models/account_model.dart';
+import '../../../routes/app_routes.dart';
 import '../../../widgets/app_bottom_nav_bar.dart';
 import '../controllers/home_controller.dart';
 
@@ -23,6 +24,11 @@ class HomeView extends GetView<HomeController> {
         title: const Text(AppStrings.appName),
         centerTitle: false,
         actions: [
+          IconButton(
+            tooltip: 'Kategori',
+            icon: const Icon(Icons.category_outlined),
+            onPressed: () => Get.toNamed(Routes.categories),
+          ),
           IconButton(
             icon: const Icon(Icons.notifications_none_rounded),
             onPressed: () {},

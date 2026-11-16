@@ -1,21 +1,21 @@
-import "package:get/get.dart";
-import "../../../data/models/transaction_model.dart";
-import "../../../data/models/account_model.dart";
-import "../../../data/models/category_model.dart";
-import "../../../data/repositories/transaction_repository.dart";
-import "../../../data/repositories/transaction_repository_impl.dart";
-import "../../../data/repositories/account_repository.dart";
-import "../../../data/repositories/account_repository_impl.dart";
-import "../../../data/providers/local_db_provider.dart";
+import 'package:get/get.dart';
+import '../../../data/models/transaction_model.dart';
+import '../../../data/models/account_model.dart';
+import '../../../data/models/category_model.dart';
+import '../../../data/repositories/transaction_repository.dart';
+import '../../../data/repositories/transaction_repository_impl.dart';
+import '../../../data/repositories/account_repository.dart';
+import '../../../data/repositories/account_repository_impl.dart';
+import '../../../data/providers/local_db_provider.dart';
 
 class TransactionController extends GetxController {
   final TransactionRepository _transactionRepo = TransactionRepositoryImpl();
   final AccountRepository _accountRepo = AccountRepositoryImpl();
   final LocalDbProvider _dbProvider = LocalDbProvider();
 
-  var transactions = <TransactionModel>[].obs;
-  var accounts = <AccountModel>[].obs;
-  var categories = <CategoryModel>[].obs;
+  final transactions = <TransactionModel>[].obs;
+  final accounts = <AccountModel>[].obs;
+  final categories = <CategoryModel>[].obs;
 
   @override
   void onInit() {
@@ -58,6 +58,15 @@ class TransactionController extends GetxController {
     }
   }
 
+  String getCategoryName(int categoryId) {
+    return categories.firstWhereOrNull((c) => c.id == categoryId)?.name ?? 'Umum';
+  }
+
+  List<CategoryModel> categoriesForType(TransactionType type) {
+    final catType = type == TransactionType.income ? CategoryType.income : CategoryType.expense;
+    return categories.where((c) => c.type == catType).toList();
+  }
+
   Future<void> addTransaction({
     required int accountId,
     required int categoryId,
@@ -80,7 +89,6 @@ class TransactionController extends GetxController {
 
       await _transactionRepo.insertTransaction(txn);
 
-      // Update account balance
       final acc = accounts.firstWhereOrNull((a) => a.id == accountId);
       if (acc != null) {
         double newBalance = acc.balance;
@@ -106,7 +114,6 @@ class TransactionController extends GetxController {
       if (txn.id == null) return;
       await _transactionRepo.deleteTransaction(txn.id!);
 
-      // Rollback account balance
       final acc = accounts.firstWhereOrNull((a) => a.id == txn.accountId);
       if (acc != null) {
         double newBalance = acc.balance;

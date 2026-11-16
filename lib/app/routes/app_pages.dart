@@ -5,6 +5,8 @@ import '../modules/report/bindings/report_binding.dart';
 import '../modules/report/views/report_view.dart';
 import '../modules/transaction/bindings/transaction_binding.dart';
 import '../modules/transaction/views/transaction_view.dart';
+import '../modules/category/bindings/category_binding.dart';
+import '../modules/category/views/category_view.dart';
 import 'app_routes.dart';
 
 class AppPages {
@@ -28,6 +30,10 @@ class AppPages {
       page: () => const ReportView(),
       binding: ReportBinding(),
     ),
+    GetPage(
+      name: Routes.categories,
+      page: () => const CategoryView(),
+      binding: CategoryBinding(),
+    ),
   ];
 }
-

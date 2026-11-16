@@ -50,6 +50,7 @@ class TransactionView extends GetView<TransactionController> {
             itemBuilder: (context, index) {
               final txn = controller.transactions[index];
               final isIncome = txn.type == TransactionType.income;
+              final categoryName = controller.getCategoryName(txn.categoryId);
 
               return Card(
                 shape: RoundedRectangleBorder(
@@ -67,12 +68,10 @@ class TransactionView extends GetView<TransactionController> {
                     ),
                   ),
                   title: Text(
-                    txn.note?.isNotEmpty == true
-                        ? txn.note!
-                        : (isIncome ? 'Pemasukan' : 'Pengeluaran'),
+                    txn.note?.isNotEmpty == true ? txn.note! : categoryName,
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  subtitle: Text(dateFormatter.format(txn.date)),
+                  subtitle: Text('$categoryName • ${dateFormatter.format(txn.date)}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -120,79 +119,105 @@ class TransactionView extends GetView<TransactionController> {
 
     final amountController = TextEditingController();
     final noteController = TextEditingController();
-    var selectedType = TransactionType.expense.obs;
-    var selectedAccountId = (controller.accounts.first.id ?? 1).obs;
+    final selectedType = TransactionType.expense.obs;
+    final selectedAccountId = (controller.accounts.first.id ?? 1).obs;
+
+    final initialCats = controller.categoriesForType(selectedType.value);
+    final selectedCategoryId = (initialCats.isNotEmpty ? initialCats.first.id ?? 1 : 1).obs;
 
     Get.defaultDialog(
       title: 'Tambah Transaksi',
       content: Obx(
-        () => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Center(child: Text('Pengeluaran')),
-                    selected: selectedType.value == TransactionType.expense,
-                    selectedColor: Colors.red.shade100,
-                    onSelected: (val) {
-                      if (val) selectedType.value = TransactionType.expense;
-                    },
+        () {
+          final filteredCategories = controller.categoriesForType(selectedType.value);
+          if (!filteredCategories.any((c) => c.id == selectedCategoryId.value) &&
+              filteredCategories.isNotEmpty) {
+            selectedCategoryId.value = filteredCategories.first.id ?? 1;
+          }
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: ChoiceChip(
+                      label: const Center(child: Text('Pengeluaran')),
+                      selected: selectedType.value == TransactionType.expense,
+                      selectedColor: Colors.red.shade100,
+                      onSelected: (val) {
+                        if (val) selectedType.value = TransactionType.expense;
+                      },
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Center(child: Text('Pemasukan')),
-                    selected: selectedType.value == TransactionType.income,
-                    selectedColor: AppColors.primaryLight,
-                    onSelected: (val) {
-                      if (val) selectedType.value = TransactionType.income;
-                    },
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ChoiceChip(
+                      label: const Center(child: Text('Pemasukan')),
+                      selected: selectedType.value == TransactionType.income,
+                      selectedColor: AppColors.primaryLight,
+                      onSelected: (val) {
+                        if (val) selectedType.value = TransactionType.income;
+                      },
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                initialValue: selectedAccountId.value,
+                decoration: const InputDecoration(
+                  labelText: 'Pilih Akun',
+                  border: OutlineInputBorder(),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: selectedAccountId.value,
-              decoration: const InputDecoration(
-                labelText: 'Pilih Akun',
-                border: OutlineInputBorder(),
+                items: controller.accounts.map((acc) {
+                  return DropdownMenuItem<int>(
+                    value: acc.id ?? 1,
+                    child: Text(acc.name),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) selectedAccountId.value = val;
+                },
               ),
-              items:
-                  controller.accounts.map((acc) {
-                    return DropdownMenuItem<int>(
-                      value: acc.id ?? 1,
-                      child: Text(acc.name),
-                    );
-                  }).toList(),
-              onChanged: (val) {
-                if (val != null) selectedAccountId.value = val;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: amountController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                key: ValueKey('cat_${selectedType.value}_${selectedCategoryId.value}'),
+                initialValue: selectedCategoryId.value,
+                decoration: const InputDecoration(
+                  labelText: 'Pilih Kategori',
+                  border: OutlineInputBorder(),
+                ),
+                items: filteredCategories.map((cat) {
+                  return DropdownMenuItem<int>(
+                    value: cat.id ?? 1,
+                    child: Text(cat.name),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) selectedCategoryId.value = val;
+                },
               ),
-              decoration: const InputDecoration(
-                labelText: 'Nominal (Rp)',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Nominal (Rp)',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: noteController,
-              decoration: const InputDecoration(
-                labelText: 'Catatan (opsional)',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(
+                  labelText: 'Catatan (opsional)',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
       textConfirm: 'Simpan',
       textCancel: 'Batal',
@@ -203,7 +228,7 @@ class TransactionView extends GetView<TransactionController> {
         if (amount > 0) {
           controller.addTransaction(
             accountId: selectedAccountId.value,
-            categoryId: 1,
+            categoryId: selectedCategoryId.value,
             amount: amount,
             type: selectedType.value,
             date: DateTime.now(),
