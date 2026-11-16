@@ -7,4 +7,3 @@ class TransactionBinding extends Bindings {
     Get.lazyPut<TransactionController>(() => TransactionController());
   }
 }
-
