@@ -1,6 +1,4 @@
-import 'package:equatable/equatable.dart';
-import 'account_model.dart';
-import 'category_model.dart';
+import "package:equatable/equatable.dart";
 
 enum TransactionType { income, expense, transfer }
 
@@ -12,7 +10,7 @@ class TransactionModel extends Equatable {
   final TransactionType type;
   final DateTime date;
   final String? note;
-  final String? receiptImagePath; // local file path
+  final String? receiptImagePath;
 
   const TransactionModel({
     this.id,
@@ -36,8 +34,8 @@ class TransactionModel extends Equatable {
         receiptImagePath: json['receipt_image_path'] as String?,
       );
 
-  static TransactionType _typeFromString(String value) {
-    switch (value) {
+  static TransactionType _typeFromString(String v) {
+    switch (v) {
       case 'income':
         return TransactionType.income;
       case 'expense':
@@ -62,36 +60,6 @@ class TransactionModel extends Equatable {
         if (receiptImagePath != null) 'receipt_image_path': receiptImagePath,
       };
 
-  TransactionModel copyWith({
-    int? id,
-    int? accountId,
-    int? categoryId,
-    double? amount,
-    TransactionType? type,
-    DateTime? date,
-    String? note,
-    String? receiptImagePath,
-  }) =>
-      TransactionModel(
-        id: id ?? this.id,
-        accountId: accountId ?? this.accountId,
-        categoryId: categoryId ?? this.categoryId,
-        amount: amount ?? this.amount,
-        type: type ?? this.type,
-        date: date ?? this.date,
-        note: note ?? this.note,
-        receiptImagePath: receiptImagePath ?? this.receiptImagePath,
-      );
-
   @override
-  List<Object?> get props => [
-        id,
-        accountId,
-        categoryId,
-        amount,
-        type,
-        date,
-        note,
-        receiptImagePath,
-      ];
+  List<Object?> get props => [id, accountId, categoryId, amount, type, date, note, receiptImagePath];
 }

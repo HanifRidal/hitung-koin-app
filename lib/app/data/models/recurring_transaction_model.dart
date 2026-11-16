@@ -1,6 +1,4 @@
 import 'package:equatable/equatable.dart';
-import 'account_model.dart';
-import 'category_model.dart';
 
 enum RecurringFrequency { daily, weekly, monthly, yearly }
 

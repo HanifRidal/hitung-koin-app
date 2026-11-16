@@ -91,7 +91,6 @@ class LocalDbProvider {
         is_default INTEGER DEFAULT 0
       );
     ''');
-    // optional seed data can be inserted here later
   }
 
   // ------- Account CRUD -------
@@ -129,6 +128,17 @@ class LocalDbProvider {
     return maps.map((e) => CategoryModel.fromJson(e)).toList();
   }
 
+  Future<int> updateCategory(CategoryModel category) async {
+    final db = await database;
+    return await db.update('categories', category.toJson(),
+        where: 'id = ?', whereArgs: [category.id]);
+  }
+
+  Future<int> deleteCategory(int id) async {
+    final db = await database;
+    return await db.delete('categories', where: 'id = ?', whereArgs: [id]);
+  }
+
   // ------- Transaction CRUD -------
   Future<int> insertTransaction(TransactionModel txn) async {
     final db = await database;
@@ -139,6 +149,17 @@ class LocalDbProvider {
     final db = await database;
     final maps = await db.query('transactions');
     return maps.map((e) => TransactionModel.fromJson(e)).toList();
+  }
+
+  Future<int> updateTransaction(TransactionModel txn) async {
+    final db = await database;
+    return await db.update('transactions', txn.toJson(),
+        where: 'id = ?', whereArgs: [txn.id]);
+  }
+
+  Future<int> deleteTransaction(int id) async {
+    final db = await database;
+    return await db.delete('transactions', where: 'id = ?', whereArgs: [id]);
   }
 
   // ------- Recurring Transaction CRUD -------
