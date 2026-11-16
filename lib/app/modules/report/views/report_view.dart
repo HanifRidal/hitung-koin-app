@@ -1,94 +1,108 @@
-import "package:flutter/material.dart";
-import "package:get/get.dart";
-import "package:intl/intl.dart";
-import "../../../../core/theme/app_colors.dart";
-import "../../../routes/app_routes.dart";
-import "../controllers/report_controller.dart";
-import "../../../data/models/transaction_model.dart";
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../widgets/app_bottom_nav_bar.dart';
+import '../controllers/report_controller.dart';
 
 class ReportView extends GetView<ReportController> {
   const ReportView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.currency(
-      locale: 'id_ID',
-      symbol: 'Rp ',
-      decimalDigits: 0,
-    );
+    final currency = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Laporan'),
-        centerTitle: false,
-      ),
+      appBar: AppBar(title: const Text('Laporan'), centerTitle: false),
       body: Obx(() {
-        if (controller.transactions.isEmpty) {
-          return Center(
+        final income = controller.totalIncome;
+        final expense = controller.totalExpense;
+        final hasData = (income + expense) > 0;
+
+        if (!hasData) {
+          return const Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.pie_chart, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text('Belum ada data transaksi'),
+              children: [
+                Icon(Icons.pie_chart_outline, size: 64, color: Colors.grey),
+                SizedBox(height: 12),
+                Text('Belum ada transaksi untuk grafik', style: TextStyle(color: Colors.grey)),
               ],
             ),
           );
         }
 
-        // Simple list view of transactions as placeholder for charts
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: controller.transactions.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final txn = controller.transactions[index];
-            final isIncome = txn.type == TransactionType.income;
-            return Card(
-              child: ListTile(
-                leading: Icon(
-                  isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-                  color: isIncome ? AppColors.income : AppColors.expense,
+        // ponytail: two-slice breakdown only; upgrade to per-category aggregation when categories seeded
+        final sections = [
+          if (income > 0)
+            PieChartSectionData(
+              value: income,
+              color: AppColors.income,
+              title: '${(income / (income + expense) * 100).toStringAsFixed(0)}%',
+              titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              radius: 50,
+            ),
+          if (expense > 0)
+            PieChartSectionData(
+              value: expense,
+              color: AppColors.expense,
+              title: '${(expense / (income + expense) * 100).toStringAsFixed(0)}%',
+              titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              radius: 50,
+            ),
+        ];
+
+        return RefreshIndicator(
+          onRefresh: () => controller.loadData(),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              SizedBox(
+                height: 200,
+                child: PieChart(
+                  PieChartData(sections: sections, centerSpaceRadius: 40, sectionsSpace: 2),
                 ),
-                title: Text(txn.note ?? (isIncome ? 'Pemasukan' : 'Pengeluaran')),
-                trailing: Text(
-                  '${isIncome ? '+' : '-'} ${currencyFormatter.format(txn.amount)}',
-                  style: TextStyle(
-                    color: isIncome ? AppColors.income : AppColors.expense,
-                    fontWeight: FontWeight.bold,
+              ),
+              const SizedBox(height: 24),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.arrow_downward, color: AppColors.income),
+                  title: const Text('Total Pemasukan'),
+                  trailing: Text(
+                    currency.format(income),
+                    style: const TextStyle(color: AppColors.income, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
-            );
-          },
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.arrow_upward, color: AppColors.expense),
+                  title: const Text('Total Pengeluaran'),
+                  trailing: Text(
+                    currency.format(expense),
+                    style: const TextStyle(color: AppColors.expense, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.account_balance_wallet, color: AppColors.accent),
+                  title: const Text('Selisih Bersih'),
+                  trailing: Text(
+                    currency.format(income - expense),
+                    style: TextStyle(
+                      color: (income - expense) >= 0 ? AppColors.income : AppColors.expense,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       }),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 2,
-        selectedItemColor: AppColors.primaryDark,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'Beranda',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_rounded),
-            label: 'Transaksi',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.pie_chart_rounded),
-            label: 'Laporan',
-          ),
-        ],
-        onTap: (index) {
-          if (index == 0) {
-            Get.offAllNamed(Routes.home);
-          } else if (index == 1) {
-            Get.offAllNamed(Routes.transaction);
-          }
-        },
-      ),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: 2),
     );
   }
 }

@@ -1,11 +1,11 @@
-import "package:flutter/material.dart";
-import "package:get/get.dart";
-import "package:intl/intl.dart";
-import "../../../../core/theme/app_colors.dart";
-import "../../../../core/values/app_strings.dart";
-import "../../../data/models/account_model.dart";
-import "../../../routes/app_routes.dart";
-import "../controllers/home_controller.dart";
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/values/app_strings.dart';
+import '../../../data/models/account_model.dart';
+import '../../../widgets/app_bottom_nav_bar.dart';
+import '../controllers/home_controller.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
@@ -38,7 +38,6 @@ class HomeView extends GetView<HomeController> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Total Balance Card
                 Card(
                   elevation: 2,
                   shape: RoundedRectangleBorder(
@@ -52,10 +51,7 @@ class HomeView extends GetView<HomeController> {
                       children: [
                         const Text(
                           'Total Saldo',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -71,8 +67,6 @@ class HomeView extends GetView<HomeController> {
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                // Accounts Section Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -90,8 +84,6 @@ class HomeView extends GetView<HomeController> {
                   ],
                 ),
                 const SizedBox(height: 8),
-
-                // Accounts List or Empty State
                 if (controller.accounts.isEmpty)
                   Center(
                     child: Padding(
@@ -117,7 +109,7 @@ class HomeView extends GetView<HomeController> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: controller.accounts.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final account = controller.accounts[index];
                       return Card(
@@ -148,8 +140,11 @@ class HomeView extends GetView<HomeController> {
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline,
-                                    color: Colors.redAccent, size: 20),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.redAccent,
+                                  size: 20,
+                                ),
                                 onPressed: () {
                                   if (account.id != null) {
                                     controller.deleteAccount(account.id!);
@@ -167,32 +162,7 @@ class HomeView extends GetView<HomeController> {
           ),
         );
       }),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        selectedItemColor: AppColors.primaryDark,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'Beranda',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_rounded),
-            label: 'Transaksi',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.pie_chart_rounded),
-            label: 'Laporan',
-          ),
-        ],
-        onTap: (index) {
-          if (index == 1) {
-            Get.toNamed(Routes.transaction);
-          } else if (index == 2) {
-            Get.toNamed(Routes.report);
-          }
-        },
-      ),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
     );
   }
 
@@ -230,9 +200,7 @@ class HomeView extends GetView<HomeController> {
         final name = nameController.text.trim();
         final balance = double.tryParse(balanceController.text.trim()) ?? 0.0;
         if (name.isNotEmpty) {
-          controller.addAccount(
-            AccountModel(name: name, balance: balance),
-          );
+          controller.addAccount(AccountModel(name: name, balance: balance));
           Get.back();
         }
       },
