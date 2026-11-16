@@ -1,5 +1,5 @@
-import 'package:get/get.dart';
-import '../controllers/report_controller.dart';
+import "package:get/get.dart";
+import "../controllers/report_controller.dart";
 
 class ReportBinding extends Bindings {
   @override
@@ -7,4 +7,3 @@ class ReportBinding extends Bindings {
     Get.lazyPut<ReportController>(() => ReportController());
   }
 }
-
